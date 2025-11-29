@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="https://cdn-icons-png.flaticon.com/512/679/679720.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>FleetOps Manager</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+```
+
+---
+
+### **Step 3: Push to the Internet (Deployment)**
+
+Go back to your **black Command Prompt window**.
+
+1.  **Setup Git** (Run these commands one by one, pressing Enter after each):
+    ```bash
+    git init
+    git add .
+    git commit -m "Ready for launch"
+    git branch -M main
+    ```
+
+2.  **Create Repository on GitHub:**
+    * Go to [GitHub.com/new](https://github.com/new).
+    * Repository name: `fleet-ops`
+    * Click **Create repository**.
+    * **Copy the command** they show you that looks like:
+        `git remote add origin https://github.com/YOUR_USERNAME/fleet-ops.git`
+
+3.  **Connect and Push:**
+    * Paste that command into your Command Prompt and hit Enter.
+    * Then run this final command:
+        ```bash
+        git push -u origin main

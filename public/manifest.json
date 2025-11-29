@@ -1,0 +1,16 @@
+{
+  "name": "FleetOps Manager",
+  "short_name": "FleetOps",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "description": "Fleet management dispatch system",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/679/679720.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
