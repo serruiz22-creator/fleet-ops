@@ -15,31 +15,3 @@
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-```
-
----
-
-### **Step 3: Push to the Internet (Deployment)**
-
-Go back to your **black Command Prompt window**.
-
-1.  **Setup Git** (Run these commands one by one, pressing Enter after each):
-    ```bash
-    git init
-    git add .
-    git commit -m "Ready for launch"
-    git branch -M main
-    ```
-
-2.  **Create Repository on GitHub:**
-    * Go to [GitHub.com/new](https://github.com/new).
-    * Repository name: `fleet-ops`
-    * Click **Create repository**.
-    * **Copy the command** they show you that looks like:
-        `git remote add origin https://github.com/YOUR_USERNAME/fleet-ops.git`
-
-3.  **Connect and Push:**
-    * Paste that command into your Command Prompt and hit Enter.
-    * Then run this final command:
-        ```bash
-        git push -u origin main
