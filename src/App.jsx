@@ -90,6 +90,7 @@ export default function FleetApp() {
   const [drivers, setDrivers] = useState(INITIAL_DRIVERS);
   const [trucks, setTrucks] = useState(INITIAL_TRUCKS);
   const [routes, setRoutes] = useState(INITIAL_ROUTES);
+  
   const [assignments, setAssignments] = useState([]);
   const [history, setHistory] = useState([]);
   
@@ -107,11 +108,12 @@ export default function FleetApp() {
 
   // --- LOADING & PERSISTENCE ---
   useEffect(() => {
-    const savedAssignments = localStorage.getItem('fleet_assignments_v5');
-    const savedHistory = localStorage.getItem('fleet_history_v5');
-    const savedTrucks = localStorage.getItem('fleet_trucks_v5');
-    const savedRoutes = localStorage.getItem('fleet_routes_v5');
-    const savedDrivers = localStorage.getItem('fleet_drivers_v5');
+    // We use '_v6' now to force a fresh data load and clear any bad cache
+    const savedAssignments = localStorage.getItem('fleet_assignments_v6');
+    const savedHistory = localStorage.getItem('fleet_history_v6');
+    const savedTrucks = localStorage.getItem('fleet_trucks_v6');
+    const savedRoutes = localStorage.getItem('fleet_routes_v6');
+    const savedDrivers = localStorage.getItem('fleet_drivers_v6');
     
     if (savedTrucks) setTrucks(JSON.parse(savedTrucks));
     if (savedRoutes) setRoutes(JSON.parse(savedRoutes));
@@ -147,11 +149,11 @@ export default function FleetApp() {
     if ('Notification' in window && Notification.permission === 'granted') setNotificationsEnabled(true);
   }, []);
 
-  useEffect(() => { localStorage.setItem('fleet_assignments_v5', JSON.stringify(assignments)); }, [assignments]);
-  useEffect(() => { localStorage.setItem('fleet_history_v5', JSON.stringify(history)); }, [history]);
-  useEffect(() => { localStorage.setItem('fleet_trucks_v5', JSON.stringify(trucks)); }, [trucks]);
-  useEffect(() => { localStorage.setItem('fleet_routes_v5', JSON.stringify(routes)); }, [routes]);
-  useEffect(() => { localStorage.setItem('fleet_drivers_v5', JSON.stringify(drivers)); }, [drivers]);
+  useEffect(() => { localStorage.setItem('fleet_assignments_v6', JSON.stringify(assignments)); }, [assignments]);
+  useEffect(() => { localStorage.setItem('fleet_history_v6', JSON.stringify(history)); }, [history]);
+  useEffect(() => { localStorage.setItem('fleet_trucks_v6', JSON.stringify(trucks)); }, [trucks]);
+  useEffect(() => { localStorage.setItem('fleet_routes_v6', JSON.stringify(routes)); }, [routes]);
+  useEffect(() => { localStorage.setItem('fleet_drivers_v6', JSON.stringify(drivers)); }, [drivers]);
 
   // --- LOGIC ---
   const requestNotificationPermission = async () => {
