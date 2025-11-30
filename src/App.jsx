@@ -1,12 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Truck, User, MapPin, Plus, CheckCircle, Clock, Search, X,
-  LayoutDashboard, List, Settings, AlertCircle, Navigation,
-  Trash2, Route as RouteIcon, Bell, Download, History, Edit2
-} from 'lucide-react';
+// Preloaded data for dropdown menus (inserted at top of file)
 
-// --- FULL DATA ---
-const INITIAL_DRIVERS = [
+export const INITIAL_DRIVERS = [
   { id: 'd1', name: 'Delgadillo', license: 'CDL-A', status: 'available', avatar: 'DE' },
   { id: 'd2', name: 'Ochoa', license: 'CDL-A', status: 'available', avatar: 'OC' },
   { id: 'd3', name: 'R.D. Garcia', license: 'CDL-A', status: 'available', avatar: 'RG' },
@@ -38,7 +32,7 @@ const INITIAL_DRIVERS = [
   { id: 'd29', name: 'Chavez', license: 'CDL-A', status: 'available', avatar: 'CZ' },
 ];
 
-const INITIAL_TRUCKS = [
+export const INITIAL_TRUCKS = [
   { id: 't427', plate: '427', type: 'Truck', status: 'available', capacity: 'Standard' },
   { id: 't1046', plate: '1046', type: 'Truck', status: 'available', capacity: 'Standard' },
   { id: 't1047', plate: '1047', type: 'Truck', status: 'available', capacity: 'Standard' },
@@ -75,7 +69,7 @@ const INITIAL_TRUCKS = [
   { id: 't4178', plate: '4178', type: 'Truck', status: 'available', capacity: 'Standard' },
 ];
 
-const INITIAL_ROUTES = [
+export const INITIAL_ROUTES = [
   { id: 'r1', name: 'West 1', distance: 'Local', estTime: '8h' },
   { id: 'r2', name: 'West 2', distance: 'Local', estTime: '8h' },
   { id: 'r3', name: 'GY/Route', distance: 'Regional', estTime: '10h' },
@@ -83,339 +77,424 @@ const INITIAL_ROUTES = [
   { id: 'r5', name: 'AP Route', distance: 'Long Haul', estTime: '24h+' },
 ];
 
-const SHIFTS = ['Morning (06:00 - 14:00)', 'Afternoon (14:00 - 22:00)', 'Night (22:00 - 06:00)'];
+import React, { useEffect, useMemo, useState } from 'react';
 
-export default function FleetApp() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [drivers, setDrivers] = useState(INITIAL_DRIVERS);
-  const [trucks, setTrucks] = useState(INITIAL_TRUCKS);
-  const [routes, setRoutes] = useState(INITIAL_ROUTES);
-  const [assignments, setAssignments] = useState([]);
-  const [history, setHistory] = useState([]);
-  
-  // UI State
-  const [showDispatchModal, setShowDispatchModal] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [addModalType, setAddModalType] = useState('truck'); 
-  const [editingId, setEditingId] = useState(null);
-  const [notification, setNotification] = useState(null); 
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+// --------------------------- Preloaded data ---------------------------
+const PRELOAD_DRIVERS = [
+  'Carrillo','Delgadillo','Gonzalez','Hernandez','Lopez','Martinez','Mendoza','Pena','Ramirez','Rodriguez',
+  'Sanchez','Torres','Vargas','Vazquez','Vega','Villanueva','Zamora','Santos','Reyes','Alvarez',
+  'Castillo','Chavez','Cruz','Diaz','Flores','Garcia','Gutierrez','Jimenez','Navarro','Ortiz'
+];
 
-  // Forms
-  const [newAssignment, setNewAssignment] = useState({ driverId: '', truckId: '', routeId: '', shift: SHIFTS[0] });
-  const [newResource, setNewResource] = useState({ name: '', plate: '', type: '', capacity: 'Medium', distance: '', estTime: '', license: '' });
+const PRELOAD_TRUCKS = [
+  '4113','427','4301','4310','441','4522','4599','4620','4721','4800',
+  '4902','5005','5010','5112','5200','5301','5403','5508','5609','5700',
+  '5804','5905','6006','6107','6208','6309','6410','6511','6612','6713',
+  '6814','6915','7016','7117','7218','7319'
+];
 
-  // --- LOADING & PERSISTENCE ---
-  useEffect(() => {
-    // We use '_v6' now to force a fresh data load and clear any bad cache
-    const savedAssignments = localStorage.getItem('fleet_assignments_v6');
-    const savedHistory = localStorage.getItem('fleet_history_v6');
-    const savedTrucks = localStorage.getItem('fleet_trucks_v6');
-    const savedRoutes = localStorage.getItem('fleet_routes_v6');
-    const savedDrivers = localStorage.getItem('fleet_drivers_v6');
-    
-    if (savedTrucks) setTrucks(JSON.parse(savedTrucks));
-    if (savedRoutes) setRoutes(JSON.parse(savedRoutes));
-    if (savedDrivers) setDrivers(JSON.parse(savedDrivers));
-    if (savedHistory) setHistory(JSON.parse(savedHistory));
+const PRELOAD_ROUTES = [
+  { id: 'R-1', name: 'West Loop', distance: 12, etaMin: 25 },
+  { id: 'R-2', name: 'East Run', distance: 20, etaMin: 40 },
+  { id: 'R-3', name: 'South Short', distance: 6, etaMin: 12 },
+  { id: 'R-4', name: 'North Express', distance: 18, etaMin: 30 }
+];
 
-    let currentAssignments = [];
-    if (savedAssignments) currentAssignments = JSON.parse(savedAssignments);
+// --------------------------- Helpers ---------------------------
+const uid = () => Math.random().toString(36).slice(2, 9);
+const nowISO = () => new Date().toISOString();
+const load = (k, fallback) => {
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch(e){ return fallback; }
+};
+const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
-    // Auto-archive (24h)
-    const now = new Date();
-    const kept = [];
-    const archived = [];
-    const freeRes = { drivers: [], trucks: [] };
+// CSV helper
+function toCSV(rows) {
+  const escape = v => '"' + String(v ?? '').replace(/"/g,'""') + '"';
+  const headers = Object.keys(rows[0] || {});
+  const lines = [headers.map(escape).join(',')];
+  for (const r of rows) lines.push(headers.map(h => escape(r[h])).join(','));
+  return lines.join('\n');
+}
 
-    currentAssignments.forEach(a => {
-        if ((now - new Date(a.startTime)) / 36e5 >= 24) {
-            archived.push({ ...a, completedAt: now.toISOString(), status: 'Auto-Completed' });
-            freeRes.drivers.push(a.driverId);
-            freeRes.trucks.push(a.truckId);
-        } else kept.push(a);
-    });
+// --------------------------- Main App ---------------------------
+export default function FleetPWA(){
+  // Persistence keys
+  const [drivers, setDrivers] = useState(() => load('fleet.drivers', PRELOAD_DRIVERS.map((n,i)=>({ id: 'D-'+i, name:n, license: 'L-' + (1000+i) }))));
+  const [trucks, setTrucks] = useState(() => load('fleet.trucks', PRELOAD_TRUCKS.map((t,i)=>({ id: 'T-'+i, plate: t, model: 'Model ' + ((i%5)+1), capacity: 4000 }))));
+  const [routes, setRoutes] = useState(() => load('fleet.routes', PRELOAD_ROUTES.map((r,i)=>({ id: r.id, name: r.name, distance: r.distance, etaMin: r.etaMin }))));
 
-    if (archived.length > 0) {
-        setAssignments(kept);
-        setHistory(prev => [...archived, ...prev]);
-        setDrivers(prev => prev.map(d => freeRes.drivers.includes(d.id) ? { ...d, status: 'available' } : d));
-        setTrucks(prev => prev.map(t => freeRes.trucks.includes(t.id) ? { ...t, status: 'available' } : t));
-    } else {
-        setAssignments(currentAssignments);
-    }
+  const [active, setActive] = useState(() => load('fleet.active', []));
+  const [records, setRecords] = useState(() => load('fleet.records', []));
 
-    if ('Notification' in window && Notification.permission === 'granted') setNotificationsEnabled(true);
-  }, []);
+  const [view, setView] = useState('dashboard'); // dashboard | records | fleet | settings
+  const [dispatchOpen, setDispatchOpen] = useState(false);
+  const [filterShift, setFilterShift] = useState(null);
 
-  useEffect(() => { localStorage.setItem('fleet_assignments_v6', JSON.stringify(assignments)); }, [assignments]);
-  useEffect(() => { localStorage.setItem('fleet_history_v6', JSON.stringify(history)); }, [history]);
-  useEffect(() => { localStorage.setItem('fleet_trucks_v6', JSON.stringify(trucks)); }, [trucks]);
-  useEffect(() => { localStorage.setItem('fleet_routes_v6', JSON.stringify(routes)); }, [routes]);
-  useEffect(() => { localStorage.setItem('fleet_drivers_v6', JSON.stringify(drivers)); }, [drivers]);
+  // Dispatch form state
+  const [form, setForm] = useState({ routeId:'', driverId:'', truckId:'', shift:'Morning' });
 
-  // --- LOGIC ---
-  const requestNotificationPermission = async () => {
-    if (!('Notification' in window)) return alert("Not supported");
-    if ((await Notification.requestPermission()) === 'granted') setNotificationsEnabled(true);
-  };
+  // Notifications permission
+  useEffect(()=>{ save('fleet.drivers', drivers); }, [drivers]);
+  useEffect(()=>{ save('fleet.trucks', trucks); }, [trucks]);
+  useEffect(()=>{ save('fleet.routes', routes); }, [routes]);
+  useEffect(()=>{ save('fleet.active', active); }, [active]);
+  useEffect(()=>{ save('fleet.records', records); }, [records]);
 
-  const showNotification = (msg) => {
-    if (notificationsEnabled) try { new Notification('FleetOps', { body: msg }); } catch(e){}
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 3000);
-  };
+  // Derived availability
+  const busyDriverIds = useMemo(()=> new Set(active.map(a=>a.driverId)), [active]);
+  const busyTruckIds = useMemo(()=> new Set(active.map(a=>a.truckId)), [active]);
 
-  const exportToCSV = () => {
-    if (history.length === 0) return alert("No records");
-    const headers = ["Date", "Completed", "Driver", "Truck", "Route", "Shift", "Status"];
-    const rows = history.map(h => {
-        const d = drivers.find(x => x.id === h.driverId)?.name || 'Unknown';
-        const t = trucks.find(x => x.id === h.truckId)?.plate || 'Unknown';
-        const r = routes.find(x => x.id === h.routeId)?.name || 'Unknown';
-        return [`"${new Date(h.startTime).toLocaleString()}"`, `"${h.completedAt}"`, `"${d}"`, `"${t}"`, `"${r}"`, `"${h.shift}"`, `"${h.status}"`].join(",");
-    });
-    const blob = new Blob([[headers.join(","), ...rows].join("\n")], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `fleet_export_${Date.now()}.csv`; a.click();
-  };
+  // Auto-archive: mark completed if >24 hours active
+  useEffect(()=>{
+    const checkArchive = ()=>{
+      const cutoff = Date.now() - 24*60*60*1000;
+      const stillActive = [];
+      const moved = [];
+      for (const s of active){
+        const start = new Date(s.startedAt).getTime();
+        if (isNaN(start) || start < cutoff) moved.push({...s, completedAt: nowISO(), autoArchived: true});
+        else stillActive.push(s);
+      }
+      if (moved.length){ setActive(stillActive); setRecords(prev=>[...moved, ...prev]); }
+    };
+    checkArchive();
+    const id = setInterval(checkArchive, 60*1000);
+    return ()=>clearInterval(id);
+  }, [active]);
 
-  const handleDispatch = () => {
-    if (!newAssignment.driverId || !newAssignment.truckId || !newAssignment.routeId) return;
-    const item = { id: Date.now(), ...newAssignment, startTime: new Date().toISOString(), status: 'Dispatched' };
-    setAssignments([item, ...assignments]);
-    setDrivers(prev => prev.map(d => d.id === newAssignment.driverId ? { ...d, status: 'busy' } : d));
-    setTrucks(prev => prev.map(t => t.id === newAssignment.truckId ? { ...t, status: 'busy' } : t));
-    setNewAssignment({ driverId: '', truckId: '', routeId: '', shift: SHIFTS[0] });
-    setShowDispatchModal(false);
-    showNotification('Dispatched successfully');
-  };
-
-  const handleComplete = (id) => {
-    const item = assignments.find(a => a.id === id);
-    if (!item) return;
-    setDrivers(prev => prev.map(d => d.id === item.driverId ? { ...d, status: 'available' } : d));
-    setTrucks(prev => prev.map(t => t.id === item.truckId ? { ...t, status: 'available' } : t));
-    setHistory(prev => [{ ...item, status: 'Completed', completedAt: new Date().toISOString() }, ...prev]);
-    setAssignments(prev => prev.filter(a => a.id !== id));
-    showNotification('Shift completed');
-  };
-
-  const handleSaveResource = () => {
-    const newId = Date.now();
-    if (editingId) {
-       if (addModalType === 'truck') setTrucks(prev => prev.map(t => t.id === editingId ? { ...t, ...newResource } : t));
-       if (addModalType === 'route') setRoutes(prev => prev.map(r => r.id === editingId ? { ...r, ...newResource } : r));
-       if (addModalType === 'driver') setDrivers(prev => prev.map(d => d.id === editingId ? { ...d, ...newResource, avatar: newResource.name.slice(0,2).toUpperCase() } : d));
-    } else {
-       if (addModalType === 'truck' && newResource.plate) setTrucks([...trucks, { id: newId, ...newResource, status: 'available' }]);
-       if (addModalType === 'route' && newResource.name) setRoutes([...routes, { id: newId, ...newResource }]);
-       if (addModalType === 'driver' && newResource.name) setDrivers([...drivers, { id: newId, ...newResource, status: 'available', avatar: newResource.name.slice(0,2).toUpperCase() }]);
-    }
-    setShowAddModal(false);
-    showNotification(editingId ? 'Updated successfully' : 'Added successfully');
-  };
-
-  const handleDelete = (type, id) => {
-      if(!window.confirm("Are you sure?")) return;
-      if (type === 'truck') setTrucks(trucks.filter(t => t.id !== id));
-      if (type === 'route') setRoutes(routes.filter(r => r.id !== id));
-      if (type === 'driver') setDrivers(drivers.filter(d => d.id !== id));
+  // Simple permission wrapper
+  async function notify(title, body){
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') await Notification.requestPermission();
+    if (Notification.permission === 'granted') new Notification(title, { body });
   }
 
-  // --- UI COMPONENTS ---
-  const StatCard = ({ title, value, icon: Icon, color }) => (
-    <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between h-28">
-      <div className="flex flex-col justify-between h-full">
-        <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">{title}</p>
-        <h3 className="text-4xl font-bold text-slate-800">{value}</h3>
-      </div>
-      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${color === 'blue' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-500'}`}>
-        <Icon size={24} strokeWidth={2.5} />
-      </div>
-    </div>
+  // Dispatch action
+  function dispatchCreate(){
+    if (!form.driverId || !form.truckId || !form.routeId) return alert('Pick route, driver, truck');
+    if (busyDriverIds.has(form.driverId) || busyTruckIds.has(form.truckId)) return alert('Driver or truck busy');
+    const route = routes.find(r=>r.id===form.routeId);
+    const driver = drivers.find(d=>d.id===form.driverId);
+    const truck = trucks.find(t=>t.id===form.truckId);
+    const item = { id: uid(), routeId: route.id, routeName: route.name, driverId: driver.id, driverName: driver.name, truckId: truck.id, truckPlate: truck.plate, shift: form.shift, status: 'Dispatched', startedAt: nowISO() };
+    setActive(prev=>[item, ...prev]);
+    notify('Dispatched', `${driver.name} on ${route.name}`);
+    setDispatchOpen(false);
+    setForm({ routeId:'', driverId:'', truckId:'', shift:'Morning' });
+  }
+
+  function completeShift(id){
+    const item = active.find(a=>a.id===id);
+    if (!item) return;
+    const done = { ...item, status: 'Completed', completedAt: nowISO(), durationMs: new Date().getTime() - new Date(item.startedAt).getTime() };
+    setActive(prev=>prev.filter(a=>a.id!==id));
+    setRecords(prev=>[done, ...prev]);
+    notify('Shift completed', `${item.driverName} - ${item.truckPlate}`);
+  }
+
+  // CRUD helpers
+  function addDriver(name, license){ setDrivers(prev=>[{ id: 'D-'+uid(), name, license }, ...prev]); }
+  function editDriver(id, fields){ setDrivers(prev=>prev.map(d=>d.id===id?{...d,...fields}:d)); }
+  function deleteDriver(id){ setDrivers(prev=>prev.filter(d=>d.id!==id)); }
+
+  function addTruck(plate, model, capacity){ setTrucks(prev=>[{ id: 'T-'+uid(), plate, model, capacity }, ...prev]); }
+  function editTruck(id, fields){ setTrucks(prev=>prev.map(t=>t.id===id?{...t,...fields}:t)); }
+  function deleteTruck(id){ setTrucks(prev=>prev.filter(t=>t.id!==id)); }
+
+  function addRoute(name, distance, etaMin){ setRoutes(prev=>[{ id: 'R-'+uid(), name, distance, etaMin }, ...prev]); }
+  function editRoute(id, fields){ setRoutes(prev=>prev.map(r=>r.id===id?{...r,...fields}:r)); }
+  function deleteRoute(id){ setRoutes(prev=>prev.filter(r=>r.id!==id)); }
+
+  function resetAll(){ if (!confirm('Erase all saved data? This cannot be undone.')) return; localStorage.clear(); window.location.reload(); }
+
+  // CSV export
+  function exportRecordsCSV(){ if (!records.length) return alert('No records'); const csv = toCSV(records.map(r=>({ id:r.id, driver:r.driverName, truck:r.truckPlate, route:r.routeName, shift:r.shift, startedAt:r.startedAt, completedAt:r.completedAt, autoArchived:!!r.autoArchived }))); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'fleet_records.csv'; a.click(); URL.revokeObjectURL(url); }
+
+  // Simple PWA install prompt handler (deferred prompt)
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  useEffect(()=>{
+    function handler(e){ e.preventDefault(); setDeferredPrompt(e); }
+    window.addEventListener('beforeinstallprompt', handler);
+    return ()=> window.removeEventListener('beforeinstallprompt', handler);
+  },[]);
+  function promptInstall(){ if (!deferredPrompt) return alert('Install prompt not available — use browser menu'); deferredPrompt.prompt(); }
+
+  // Service worker register (if exists)
+  useEffect(()=>{ if ('serviceWorker' in navigator){ navigator.serviceWorker.register('/service-worker.js').catch(()=>{}); } }, []);
+
+  // UI pieces below
+  const activeCount = active.length;
+  const availableTrucks = trucks.filter(t=>!busyTruckIds.has(t.id)).length;
+
+  // Simple card component
+  const Badge = ({children, variant='gray'})=> (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-${variant}-100 text-${variant}-800`}>{children}</span>
   );
 
-  const AssignmentCard = ({ data, isHistory }) => {
-    const driver = drivers.find(d => d.id === data.driverId);
-    const truck = trucks.find(t => t.id === data.truckId);
-    const route = routes.find(r => r.id === data.routeId);
-    return (
-      <div className={`bg-white p-5 rounded-[2rem] shadow-sm border mb-4 relative overflow-hidden ${isHistory ? 'border-slate-200 opacity-90' : 'border-slate-100'}`}>
-        {/* Blue accent bar on left */}
-        {!isHistory && <div className="absolute left-0 top-6 bottom-6 w-1.5 bg-blue-500 rounded-r-full"></div>}
-        
-        <div className={!isHistory ? 'pl-3' : ''}>
-            <div className="flex justify-between items-start mb-6">
-            <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-lg border border-slate-200">{driver?.avatar || 'DR'}</div>
-                <div><h4 className="font-bold text-xl text-slate-900">{driver?.name || 'Unknown'}</h4><div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium"><User size={12} /> {driver?.license}</div></div>
-            </div>
-            <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${isHistory ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-600'}`}>{isHistory ? 'Completed' : 'Dispatched'}</span>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="bg-slate-50 p-4 rounded-2xl">
-                <p className="text-slate-400 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><Truck size={12} /> Vehicle</p>
-                <p className="text-xl font-bold text-slate-800 mb-0.5">{truck?.plate || 'Unknown'}</p>
-                <p className="text-xs text-slate-500">{truck?.type}</p>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-2xl">
-                <p className="text-slate-400 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><MapPin size={12} /> Route</p>
-                <p className="text-xl font-bold text-slate-800 mb-0.5 truncate">{route?.name || 'Unknown'}</p>
-                <p className="text-xs text-slate-500">{route?.distance}</p>
-            </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-2 text-slate-400 text-sm font-medium"><Clock size={18} /> Shift: {data.shift}</div>
-            {!isHistory && <button onClick={() => handleComplete(data.id)} className="flex items-center gap-1.5 text-emerald-500 font-bold text-sm hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors"><CheckCircle size={20} /> Complete</button>}
-            {isHistory && <span className="text-xs text-slate-400">{new Date(data.completedAt).toLocaleDateString()}</span>}
-            </div>
-        </div>
-      </div>
-    );
-  };
-
+  // ---------- Render ----------
   return (
-    <div className="min-h-screen bg-[#F8F9FA] font-sans pb-28 text-slate-900">
-      {notification && <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-bounce-in"><div className="bg-emerald-600 text-white px-4 py-2 rounded-full shadow-xl flex items-center gap-2 text-sm font-bold"><CheckCircle size={16} /> {notification}</div></div>}
-      
-      <header className="bg-white px-6 py-5 sticky top-0 z-20 flex justify-between items-center shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center gap-2.5"><div className="bg-blue-600 w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200"><Navigation size={20} fill="currentColor" /></div><h1 className="text-2xl font-bold text-slate-900 tracking-tight">Fleet<span className="text-blue-600">Ops</span></h1></div>
-        <div className="flex items-center gap-4"><Search size={24} className="text-slate-400" /><div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 border border-slate-200">AD</div></div>
+    <div className="min-h-screen bg-white text-slate-900 p-4 md:p-8">
+      <header className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Fleet Dispatch • Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-slate-600">Active: <strong>{activeCount}</strong></div>
+          <div className="text-sm text-slate-600">Available: <strong>{availableTrucks}</strong></div>
+          <nav className="space-x-2">
+            <button onClick={()=>setView('dashboard')} className={`px-3 py-1 rounded ${view==='dashboard'?'bg-slate-100':'hover:bg-slate-50'}`}>Dashboard</button>
+            <button onClick={()=>setView('fleet')} className={`px-3 py-1 rounded ${view==='fleet'?'bg-slate-100':'hover:bg-slate-50'}`}>Fleet</button>
+            <button onClick={()=>setView('records')} className={`px-3 py-1 rounded ${view==='records'?'bg-slate-100':'hover:bg-slate-50'}`}>Records</button>
+            <button onClick={()=>setView('settings')} className={`px-3 py-1 rounded ${view==='settings'?'bg-slate-100':'hover:bg-slate-50'}`}>Settings</button>
+          </nav>
+        </div>
       </header>
 
-      <main className="p-5 max-w-lg mx-auto">
-        {activeTab === 'dashboard' && (
-          <div className="space-y-8 animate-fade-in">
-            <div className="grid grid-cols-2 gap-4"><StatCard title="Active" value={assignments.length} icon={Navigation} color="blue" /><StatCard title="Avail Trucks" value={trucks.filter(t => t.status === 'available').length} icon={Truck} color="green" /></div>
-            <div>
-              <div className="flex items-center justify-between mb-5 px-1"><h2 className="text-xl font-bold text-slate-800">Active Fleet</h2><span className="text-xs font-bold text-slate-400 bg-white px-3 py-1.5 rounded-full border border-slate-200">{new Date().toLocaleDateString()}</span></div>
-              {assignments.length === 0 ? <div className="text-center py-12 opacity-50"><Truck size={48} className="mx-auto mb-3 text-slate-300"/><p className="text-sm">No active trucks.</p></div> : assignments.map(a => <AssignmentCard key={a.id} data={a} />)}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'records' && (
-            <div className="space-y-6 animate-fade-in">
-                <div className="flex justify-between items-center"><h2 className="text-xl font-bold">History</h2><button onClick={exportToCSV} className="flex items-center gap-2 bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold"><Download size={14}/> Export</button></div>
-                {history.length === 0 ? <div className="text-center py-12 text-slate-400">No history yet.</div> : history.map(h => <AssignmentCard key={h.id} data={h} isHistory={true} />)}
-            </div>
-        )}
-
-        {activeTab === 'fleet' && (
-           <div className="space-y-6 pb-12 animate-fade-in">
-             {/* Drivers */}
-             <div className="bg-white rounded-[2rem] p-5 border border-slate-100 shadow-sm">
-               <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-lg">Drivers</h3><button onClick={() => {setEditingId(null); setAddModalType('driver'); setNewResource({name:'', license:''}); setShowAddModal(true)}} className="bg-blue-600 text-white p-2 rounded-full shadow-lg"><Plus size={18}/></button></div>
-               <div className="max-h-60 overflow-y-auto pr-2 space-y-3">
-                 {drivers.map(d => (
-                   <div key={d.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-2xl">
-                     <div className="flex items-center gap-3"><div className="w-9 h-9 bg-white rounded-full flex items-center justify-center text-xs font-bold border border-slate-200">{d.avatar}</div><div><p className="font-bold text-sm text-slate-800">{d.name}</p><p className="text-[10px] text-slate-400">{d.license}</p></div></div>
-                     <div className="flex gap-2"><button onClick={() => {setEditingId(d.id); setAddModalType('driver'); setNewResource(d); setShowAddModal(true)}}><Edit2 size={16} className="text-slate-400"/></button><button onClick={() => handleDelete('driver', d.id)}><Trash2 size={16} className="text-red-400"/></button></div>
-                   </div>
-                 ))}
-               </div>
-             </div>
-             {/* Trucks */}
-             <div className="bg-white rounded-[2rem] p-5 border border-slate-100 shadow-sm">
-               <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-lg">Vehicles</h3><button onClick={() => {setEditingId(null); setAddModalType('truck'); setNewResource({plate:'', type:''}); setShowAddModal(true)}} className="bg-blue-600 text-white p-2 rounded-full shadow-lg"><Plus size={18}/></button></div>
-               <div className="max-h-60 overflow-y-auto pr-2 space-y-3">
-                 {trucks.map(t => (
-                   <div key={t.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-2xl">
-                     <div className="flex items-center gap-3"><div className={`w-2 h-2 rounded-full ${t.status === 'available' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div><div><p className="font-bold text-sm text-slate-800">{t.plate}</p><p className="text-[10px] text-slate-400">{t.type}</p></div></div>
-                     <div className="flex gap-2"><button onClick={() => {setEditingId(t.id); setAddModalType('truck'); setNewResource(t); setShowAddModal(true)}}><Edit2 size={16} className="text-slate-400"/></button><button onClick={() => handleDelete('truck', t.id)}><Trash2 size={16} className="text-red-400"/></button></div>
-                   </div>
-                 ))}
-               </div>
-             </div>
-             {/* Routes */}
-             <div className="bg-white rounded-[2rem] p-5 border border-slate-100 shadow-sm">
-               <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-lg">Routes</h3><button onClick={() => {setEditingId(null); setAddModalType('route'); setNewResource({name:'', distance:''}); setShowAddModal(true)}} className="bg-blue-600 text-white p-2 rounded-full shadow-lg"><Plus size={18}/></button></div>
-               <div className="max-h-60 overflow-y-auto pr-2 space-y-3">
-                 {routes.map(r => (
-                   <div key={r.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-2xl">
-                     <div><p className="font-bold text-sm text-slate-800">{r.name}</p><p className="text-[10px] text-slate-400">{r.distance} • {r.estTime}</p></div>
-                     <div className="flex gap-2"><button onClick={() => {setEditingId(r.id); setAddModalType('route'); setNewResource(r); setShowAddModal(true)}}><Edit2 size={16} className="text-slate-400"/></button><button onClick={() => handleDelete('route', r.id)}><Trash2 size={16} className="text-red-400"/></button></div>
-                   </div>
-                 ))}
-               </div>
-             </div>
-           </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="space-y-6 animate-fade-in">
-            <h2 className="text-xl font-bold text-slate-900">Settings</h2>
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center"><div><h3 className="font-bold text-slate-800">Notifications</h3><p className="text-xs text-slate-500">Enable system alerts</p></div><button onClick={requestNotificationPermission} className={`p-3 rounded-full ${notificationsEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}><Bell size={20} /></button></div>
-            <div className="bg-white p-5 rounded-2xl border border-slate-100">
-               <h3 className="font-bold text-slate-800 mb-2">Reset App</h3>
-               <p className="text-xs text-slate-500 mb-4">Clear all local data and assignments.</p>
-               <button onClick={() => { if(window.confirm('Reset everything?')) { localStorage.clear(); window.location.reload(); } }} className="w-full bg-red-50 text-red-600 font-bold py-3 rounded-xl border border-red-100">Reset Data</button>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* TABS */}
-      <nav className="fixed bottom-0 w-full bg-white border-t border-slate-100 px-8 py-4 flex justify-between items-center pb-safe shadow-[0_-10px_60px_rgba(0,0,0,0.05)] z-40 rounded-t-[2rem]">
-        {[
-          {id: 'dashboard', icon: LayoutDashboard, label: 'Dash'},
-          {id: 'records', icon: History, label: 'Records'},
-          {id: 'fleet', icon: List, label: 'Fleet'},
-          {id: 'settings', icon: Settings, label: 'Settings'}
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center gap-1.5 ${activeTab === tab.id ? 'text-blue-600' : 'text-slate-300'}`}>
-            <tab.icon size={26} strokeWidth={activeTab === tab.id ? 2.5 : 2.5} />
-            <span className="text-[10px] font-bold">{tab.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      {/* FAB */}
-      {activeTab === 'dashboard' && <button onClick={() => setShowDispatchModal(true)} className="fixed bottom-28 right-6 w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-blue-600/40 hover:scale-105 active:scale-95 transition-all z-30"><Plus size={32} /></button>}
-
-      {/* MODALS */}
-      {showDispatchModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[2rem] p-7 shadow-2xl mb-4">
-            <div className="flex justify-between items-center mb-8"><h3 className="text-xl font-bold text-slate-900">Dispatch Vehicle</h3><button onClick={() => setShowDispatchModal(false)} className="bg-slate-100 p-2 rounded-full"><X size={20} className="text-slate-500" /></button></div>
-            <div className="space-y-5 mb-8">
-              <div><label className="text-xs font-bold text-slate-400 uppercase tracking-wide ml-1">Route</label><select className="w-full mt-2 p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700 appearance-none" value={newAssignment.routeId} onChange={e => setNewAssignment({...newAssignment, routeId: e.target.value})}><option value="">Select Route</option>{routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-xs font-bold text-slate-400 uppercase tracking-wide ml-1">Driver</label><select className="w-full mt-2 p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700 appearance-none" value={newAssignment.driverId} onChange={e => setNewAssignment({...newAssignment, driverId: e.target.value})}><option value="">Select</option>{drivers.filter(d => d.status === 'available').map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-                <div><label className="text-xs font-bold text-slate-400 uppercase tracking-wide ml-1">Truck</label><select className="w-full mt-2 p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-700 appearance-none" value={newAssignment.truckId} onChange={e => setNewAssignment({...newAssignment, truckId: e.target.value})}><option value="">Select</option>{trucks.filter(t => t.status === 'available').map(t => <option key={t.id} value={t.id}>{t.plate}</option>)}</select></div>
-              </div>
-              <div><label className="text-xs font-bold text-slate-400 uppercase tracking-wide ml-1">Shift</label><div className="flex gap-2 mt-2 overflow-x-auto">{SHIFTS.map(s => <button key={s} onClick={() => setNewAssignment({...newAssignment, shift: s})} className={`px-5 py-3 rounded-xl text-sm font-bold transition-all ${newAssignment.shift === s ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-slate-100 text-slate-500'}`}>{s}</button>)}</div></div>
-            </div>
-            <button onClick={handleDispatch} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-200 active:scale-95 transition-all text-lg">Confirm Dispatch</button>
-          </div>
-        </div>
-      )}
-
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6">
-            <div className="bg-white w-full max-w-xs rounded-3xl p-6">
-                <h3 className="font-bold mb-4 text-lg">{editingId ? 'Edit' : 'Add'} {addModalType}</h3>
-                <div className="space-y-3 mb-6">
-                    {addModalType === 'truck' && <><input className="w-full bg-slate-50 p-4 rounded-2xl font-bold" placeholder="Plate (e.g. 427)" value={newResource.plate} onChange={e => setNewResource({...newResource, plate: e.target.value})} /><input className="w-full bg-slate-50 p-4 rounded-2xl font-bold" placeholder="Type (e.g. Truck)" value={newResource.type} onChange={e => setNewResource({...newResource, type: e.target.value})} /></>}
-                    {addModalType === 'route' && <><input className="w-full bg-slate-50 p-4 rounded-2xl font-bold" placeholder="Name" value={newResource.name} onChange={e => setNewResource({...newResource, name: e.target.value})} /><input className="w-full bg-slate-50 p-4 rounded-2xl font-bold" placeholder="Distance" value={newResource.distance} onChange={e => setNewResource({...newResource, distance: e.target.value})} /></>}
-                    {addModalType === 'driver' && <><input className="w-full bg-slate-50 p-4 rounded-2xl font-bold" placeholder="Name" value={newResource.name} onChange={e => setNewResource({...newResource, name: e.target.value})} /><input className="w-full bg-slate-50 p-4 rounded-2xl font-bold" placeholder="License" value={newResource.license} onChange={e => setNewResource({...newResource, license: e.target.value})} /></>}
+      {view==='dashboard' && (
+        <main>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <section className="col-span-2">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Active Fleet</h2>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm">Shift</label>
+                  <select value={filterShift||''} onChange={e=>setFilterShift(e.target.value||null)} className="px-2 py-1 border rounded">
+                    <option value="">All</option>
+                    <option value="Morning">Morning</option>
+                    <option value="Afternoon">Afternoon</option>
+                    <option value="Night">Night</option>
+                  </select>
                 </div>
-                <button onClick={handleSaveResource} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl mb-2">Save</button>
-                <button onClick={() => setShowAddModal(false)} className="w-full text-slate-400 font-bold py-2">Cancel</button>
-            </div>
+              </div>
+
+              <div className="space-y-3">
+                {active.filter(a=>!filterShift||a.shift===filterShift).map(a=> (
+                  <div key={a.id} className="border rounded p-3 flex items-center justify-between shadow-sm">
+                    <div>
+                      <div className="font-medium">{a.driverName} • {a.truckPlate}</div>
+                      <div className="text-sm text-slate-600">{a.routeName} • {a.shift}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 rounded-full text-xs ${a.status==='Dispatched'?'bg-amber-100 text-amber-800':'bg-green-100 text-green-800'}`}>{a.status}</span>
+                      <button onClick={()=>completeShift(a.id)} className="px-3 py-1 rounded bg-green-50 hover:bg-green-100 text-green-700">Complete</button>
+                    </div>
+                  </div>
+                ))}
+                {!active.length && <div className="text-slate-500">No active assignments</div>}
+              </div>
+            </section>
+
+            <aside>
+              <div className="mb-4 p-3 border rounded">
+                <h3 className="font-semibold">Quick Stats</h3>
+                <div className="mt-2 text-sm text-slate-600">Active trucks: <strong>{activeCount}</strong></div>
+                <div className="text-sm text-slate-600">Available trucks: <strong>{availableTrucks}</strong></div>
+                <div className="mt-3">
+                  <button onClick={()=>setDispatchOpen(true)} className="w-full px-3 py-2 rounded bg-slate-800 text-white">+ Dispatch</button>
+                </div>
+              </div>
+
+              <div className="p-3 border rounded">
+                <h3 className="font-semibold">Legend</h3>
+                <div className="mt-2 text-sm"><span className="inline-block w-3 h-3 bg-amber-300 mr-2 align-middle rounded-full"></span> Dispatched</div>
+                <div className="text-sm"><span className="inline-block w-3 h-3 bg-green-300 mr-2 align-middle rounded-full"></span> Completed/Available</div>
+              </div>
+            </aside>
+          </div>
+        </main>
+      )}
+
+      {view==='fleet' && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Fleet Management</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <CrudList title="Drivers" items={drivers} onAdd={(name,license)=>addDriver(name,license)} onEdit={editDriver} onDelete={deleteDriver} fields={[{k:'name',label:'Name'},{k:'license',label:'License'}]} />
+            <CrudList title="Trucks" items={trucks} onAdd={(plate,model,capacity)=>addTruck(plate,model,capacity)} onEdit={editTruck} onDelete={deleteTruck} fields={[{k:'plate',label:'Plate'},{k:'model',label:'Model'},{k:'capacity',label:'Capacity'}]} />
+            <CrudList title="Routes" items={routes} onAdd={(name,distance,eta)=>addRoute(name,distance,eta)} onEdit={editRoute} onDelete={deleteRoute} fields={[{k:'name',label:'Name'},{k:'distance',label:'Distance'},{k:'etaMin',label:'ETA (min)'}]} />
+          </div>
         </div>
       )}
 
-      <style>{`
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 30px); }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes bounce-in { 0% { transform: translate(-50%, -200%); } 60% { transform: translate(-50%, 10%); } 100% { transform: translate(-50%, 0); } }
-        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-        .animate-bounce-in { animation: bounce-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-      `}</style>
+      {view==='records' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Records</h2>
+            <div className="flex items-center gap-2">
+              <button onClick={exportRecordsCSV} className="px-3 py-1 rounded bg-slate-800 text-white">Download CSV</button>
+              <button onClick={()=>{ if (confirm('Clear all records?')) setRecords([]); }} className="px-3 py-1 rounded border text-slate-700">Clear</button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {records.map(r=> (
+              <div key={r.id} className="p-3 border rounded flex justify-between">
+                <div>
+                  <div className="font-medium">{r.driverName} • {r.truckPlate}</div>
+                  <div className="text-sm text-slate-600">{r.routeName} • {r.shift}</div>
+                </div>
+                <div className="text-sm text-slate-500">{new Date(r.startedAt).toLocaleString()} → {r.completedAt?new Date(r.completedAt).toLocaleString():'—'}</div>
+              </div>
+            ))}
+            {!records.length && <div className="text-slate-500">No records yet.</div>}
+          </div>
+        </div>
+      )}
+
+      {view==='settings' && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Settings</h2>
+          <div className="space-y-4 max-w-xl">
+            <div className="p-3 border rounded">
+              <h3 className="font-semibold">Notifications</h3>
+              <div className="mt-2 text-sm">Allow browser notifications to receive dispatch and completion alerts.</div>
+              <div className="mt-3"><button onClick={()=>Notification.requestPermission()} className="px-3 py-1 rounded bg-slate-800 text-white">Request Permission</button></div>
+            </div>
+
+            <div className="p-3 border rounded">
+              <h3 className="font-semibold text-rose-600">Danger Zone</h3>
+              <div className="mt-2 text-sm text-rose-600">Reset all app data (drivers, trucks, routes, active operations, and records).</div>
+              <div className="mt-3"><button onClick={resetAll} className="px-3 py-1 rounded bg-rose-600 text-white">Erase Everything</button></div>
+            </div>
+
+            <div className="p-3 border rounded">
+              <h3 className="font-semibold">PWA</h3>
+              <div className="mt-2 text-sm">Installable: {deferredPrompt ? 'Install prompt available' : 'Use browser menu to install'}</div>
+              <div className="mt-3 flex gap-2"><button onClick={promptInstall} className="px-3 py-1 rounded bg-slate-800 text-white">Install</button></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dispatch Modal */}
+      {dispatchOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded shadow max-w-xl w-full p-4">
+            <h3 className="font-semibold mb-2">Quick Dispatch</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <select value={form.routeId} onChange={e=>setForm(f=>({...f,routeId:e.target.value}))} className="p-2 border rounded">
+                <option value="">Select route</option>
+                {routes.map(r=> <option key={r.id} value={r.id}>{r.name} ({r.distance}km)</option>)}
+              </select>
+
+              <select value={form.driverId} onChange={e=>setForm(f=>({...f,driverId:e.target.value}))} className="p-2 border rounded">
+                <option value="">Select driver</option>
+                {drivers.filter(d=>!busyDriverIds.has(d.id)).map(d=> <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+
+              <select value={form.truckId} onChange={e=>setForm(f=>({...f,truckId:e.target.value}))} className="p-2 border rounded">
+                <option value="">Select truck</option>
+                {trucks.filter(t=>!busyTruckIds.has(t.id)).map(t=> <option key={t.id} value={t.id}>{t.plate} • {t.model}</option>)}
+              </select>
+            </div>
+
+            <div className="mt-3 flex items-center gap-2">
+              <label className="text-sm">Shift</label>
+              <div className="flex gap-2">
+                {['Morning','Afternoon','Night'].map(s=> (
+                  <button key={s} onClick={()=>setForm(f=>({...f,shift:s}))} className={`px-3 py-1 rounded ${form.shift===s?'bg-slate-800 text-white':'border'}`}>{s}</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={()=>setDispatchOpen(false)} className="px-3 py-1 rounded border">Cancel</button>
+              <button onClick={dispatchCreate} className="px-3 py-1 rounded bg-slate-800 text-white">Dispatch</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Button */}
+      <button onClick={()=>setDispatchOpen(true)} title="New dispatch" className="fixed right-6 bottom-6 w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-white bg-slate-800 text-2xl">+</button>
+
     </div>
   );
 }
+
+// --------------------------- Small components (inside file) ---------------------------
+function CrudList({ title, items, onAdd, onEdit, onDelete, fields }){
+  const [openAdd, setOpenAdd] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({});
+
+  useEffect(()=>{ if (!openAdd) setForm({}); }, [openAdd]);
+  useEffect(()=>{ if (editId){ const it = items.find(x=>x.id===editId); setForm(it||{}); } }, [editId]);
+
+  function submitAdd(){
+    if (title==='Drivers') onAdd(form.name||'Unnamed', form.license||'N/A');
+    if (title==='Trucks') onAdd(form.plate||'UNK', form.model||'Model', form.capacity||0);
+    if (title==='Routes') onAdd(form.name||'Route', Number(form.distance)||0, Number(form.etaMin)||0);
+    setOpenAdd(false);
+  }
+  function submitEdit(){ onEdit(editId, form); setEditId(null); }
+
+  return (
+    <div className="p-3 border rounded">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="font-semibold">{title}</h4>
+        <div className="flex gap-2">
+          <button onClick={()=>setOpenAdd(s=>!s)} className="px-2 py-1 rounded border">Add</button>
+        </div>
+      </div>
+      {openAdd && (
+        <div className="space-y-2 mb-3">
+          {fields.map(f=> (
+            <input key={f.k} value={form[f.k]||''} onChange={e=>setForm(prev=>({...prev,[f.k]:e.target.value}))} className="w-full p-2 border rounded" placeholder={f.label} />
+          ))}
+          <div className="flex gap-2"><button onClick={submitAdd} className="px-2 py-1 rounded bg-slate-800 text-white">Create</button><button onClick={()=>setOpenAdd(false)} className="px-2 py-1 rounded border">Cancel</button></div>
+        </div>
+      )}
+
+      <div className="space-y-1 max-h-80 overflow-auto">
+        {items.map(it=> (
+          <div key={it.id} className="flex items-center justify-between p-2 border rounded">
+            <div className="text-sm">
+              <div className="font-medium">{it.name||it.plate}</div>
+              <div className="text-xs text-slate-500">{fields.map(f=>`${f.label}: ${it[f.k]}`).join(' • ')}</div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={()=>setEditId(it.id)} className="px-2 py-1 rounded border text-xs">Edit</button>
+              <button onClick={()=>onDelete(it.id)} className="px-2 py-1 rounded border text-xs text-rose-600">Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editId && (
+        <div className="mt-3 p-2 border rounded">
+          <div className="space-y-2">
+            {fields.map(f=> (
+              <input key={f.k} value={form[f.k]||''} onChange={e=>setForm(prev=>({...prev,[f.k]:e.target.value}))} className="w-full p-2 border rounded" placeholder={f.label} />
+            ))}
+            <div className="flex gap-2"><button onClick={submitEdit} className="px-2 py-1 rounded bg-slate-800 text-white">Save</button><button onClick={()=>setEditId(null)} className="px-2 py-1 rounded border">Cancel</button></div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+/*
+SERVICE WORKER (service-worker.js) - place in public/
+
+self.addEventListener('install', function(e){ self.skipWaiting(); });
+self.addEventListener('activate', function(e){ clients.claim(); });
+self.addEventListener('fetch', function(event){
+  // Simple offline strategy: respond with cached index.html for navigation
+});
+
+MANIFEST (manifest.json) - place in public/
+{
+  "name": "Fleet Dispatch PWA",
+  "short_name": "FleetPWA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": [
+    { "src": "/icons/192.png", "sizes":"192x192", "type":"image/png" },
+    { "src": "/icons/512.png", "sizes":"512x512", "type":"image/png" }
+  ]
+}
+
+Remember: add service-worker registration snippet in index.js and ensure the service worker file is served from the root (public/service-worker.js).
+*/
