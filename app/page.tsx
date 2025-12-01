@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Truck, Users, MapPin, Plus, Trash2, Save, 
+  Truck, Users, MapPin, Plus, Trash2, 
   Download, Clock, CheckCircle, AlertCircle, Settings, History, X 
 } from 'lucide-react';
 import { format, differenceInHours } from 'date-fns';
@@ -23,27 +23,81 @@ interface Dispatch {
   status: 'Active' | 'Completed';
 }
 
-// --- Initial Data (Populated based on your request) ---
+// --- Updated Data Lists ---
 const INITIAL_DRIVERS = [
-  { id: '1', name: 'Carrillo', license: 'CDL-A' },
-  { id: '2', name: 'Delgadillo', license: 'CDL-A' },
-  { id: '3', name: 'Martinez', license: 'CDL-B' },
-  { id: '4', name: 'Gomez', license: 'CDL-A' },
-  { id: '5', name: 'Hernandez', license: 'CDL-A' },
+  { id: '1', name: 'Delgadillo', license: 'CDL-A' },
+  { id: '2', name: 'Ochoa', license: 'CDL-A' },
+  { id: '3', name: 'R.D. Garcia', license: 'CDL-A' },
+  { id: '4', name: 'Vazquez', license: 'CDL-A' },
+  { id: '5', name: 'Figueroa', license: 'CDL-A' },
+  { id: '6', name: 'Varela', license: 'CDL-A' },
+  { id: '7', name: 'Carrillo', license: 'CDL-A' },
+  { id: '8', name: 'Dominguez', license: 'CDL-A' },
+  { id: '9', name: 'Ruiz', license: 'CDL-A' },
+  { id: '10', name: 'Sanchez', license: 'CDL-A' },
+  { id: '11', name: 'Flores', license: 'CDL-A' },
+  { id: '12', name: 'Barraza', license: 'CDL-A' },
+  { id: '13', name: 'Burgos', license: 'CDL-A' },
+  { id: '14', name: 'Ospina', license: 'CDL-A' },
+  { id: '15', name: 'Michael', license: 'CDL-A' },
+  { id: '16', name: 'Mendez', license: 'CDL-A' },
+  { id: '17', name: 'Martinez', license: 'CDL-A' },
+  { id: '18', name: 'Corey Hdz', license: 'CDL-A' },
+  { id: '19', name: 'Ebron', license: 'CDL-A' },
+  { id: '20', name: 'Diaz', license: 'CDL-A' },
+  { id: '21', name: 'Saez', license: 'CDL-A' },
+  { id: '22', name: 'Rodriguez', license: 'CDL-A' },
+  { id: '23', name: 'Joshua H.', license: 'CDL-A' },
+  { id: '24', name: 'Gutierrez', license: 'CDL-A' },
+  { id: '25', name: 'Antuna', license: 'CDL-A' },
+  { id: '26', name: 'Tarango', license: 'CDL-A' },
+  { id: '27', name: 'Sierra', license: 'CDL-A' },
+  { id: '28', name: 'Chavez', license: 'CDL-A' },
 ];
 
 const INITIAL_TRUCKS = [
-  { id: '1', plate: '4113', model: 'Water Tanker', capacity: '2000g' },
-  { id: '2', plate: '427', model: 'Mack Dump', capacity: 'N/A' },
-  { id: '3', plate: '5050', model: 'Peterbilt', capacity: '5000g' },
-  { id: '4', plate: '2201', model: 'Ford F550', capacity: 'Service' },
-  { id: '5', plate: '3309', model: 'Freightliner', capacity: '4000g' },
+  { id: '427', plate: '427', model: 'Heavy Duty', capacity: 'N/A' },
+  { id: '1046', plate: '1046', model: 'Truck', capacity: 'N/A' },
+  { id: '1047', plate: '1047', model: 'Truck', capacity: 'N/A' },
+  { id: '1065', plate: '1065', model: 'Truck', capacity: 'N/A' },
+  { id: '1082', plate: '1082', model: 'Truck', capacity: 'N/A' },
+  { id: '4037', plate: '4037', model: 'Truck', capacity: 'N/A' },
+  { id: '4064', plate: '4064', model: 'Truck', capacity: 'N/A' },
+  { id: '4079', plate: '4079', model: 'Truck', capacity: 'N/A' },
+  { id: '4080', plate: '4080', model: 'Truck', capacity: 'N/A' },
+  { id: '4082', plate: '4082', model: 'Truck', capacity: 'N/A' },
+  { id: '4098', plate: '4098', model: 'Truck', capacity: 'N/A' },
+  { id: '4099', plate: '4099', model: 'Truck', capacity: 'N/A' },
+  { id: '4113', plate: '4113', model: 'Water Tanker', capacity: '2000g' },
+  { id: '4115', plate: '4115', model: 'Truck', capacity: 'N/A' },
+  { id: '4124', plate: '4124', model: 'Truck', capacity: 'N/A' },
+  { id: '4127', plate: '4127', model: 'Truck', capacity: 'N/A' },
+  { id: '4132', plate: '4132', model: 'Truck', capacity: 'N/A' },
+  { id: '4134', plate: '4134', model: 'Truck', capacity: 'N/A' },
+  { id: '4145', plate: '4145', model: 'Truck', capacity: 'N/A' },
+  { id: '4146', plate: '4146', model: 'Truck', capacity: 'N/A' },
+  { id: '4147', plate: '4147', model: 'Truck', capacity: 'N/A' },
+  { id: '4153', plate: '4153', model: 'Truck', capacity: 'N/A' },
+  { id: '4155', plate: '4155', model: 'Truck', capacity: 'N/A' },
+  { id: '4156', plate: '4156', model: 'Truck', capacity: 'N/A' },
+  { id: '4157', plate: '4157', model: 'Truck', capacity: 'N/A' },
+  { id: '4161', plate: '4161', model: 'Truck', capacity: 'N/A' },
+  { id: '4164', plate: '4164', model: 'Truck', capacity: 'N/A' },
+  { id: '4166', plate: '4166', model: 'Truck', capacity: 'N/A' },
+  { id: '4167', plate: '4167', model: 'Truck', capacity: 'N/A' },
+  { id: '4168', plate: '4168', model: 'Truck', capacity: 'N/A' },
+  { id: '4169', plate: '4169', model: 'Truck', capacity: 'N/A' },
+  { id: '4170', plate: '4170', model: 'Truck', capacity: 'N/A' },
+  { id: '4171', plate: '4171', model: 'Truck', capacity: 'N/A' },
+  { id: '4178', plate: '4178', model: 'Truck', capacity: 'N/A' },
 ];
 
 const INITIAL_ROUTES = [
   { id: '1', name: 'Eastside Loop', distance: '45mi', estTime: '2h' },
   { id: '2', name: 'Airport Shuttle', distance: '12mi', estTime: '45m' },
   { id: '3', name: 'Valley Route', distance: '60mi', estTime: '3h' },
+  { id: '4', name: 'West Side', distance: '30mi', estTime: '1.5h' },
+  { id: '5', name: 'Downtown', distance: '15mi', estTime: '1h' },
 ];
 
 export default function FleetApp() {
@@ -63,28 +117,28 @@ export default function FleetApp() {
 
   // --- Persistence & Lifecycle ---
   useEffect(() => {
-    // Load data from LocalStorage on mount
     if (typeof window !== 'undefined') {
       const savedData = localStorage.getItem('fleetData_v1');
       if (savedData) {
         const parsed = JSON.parse(savedData);
-        if (parsed.drivers) setDrivers(parsed.drivers);
-        if (parsed.trucks) setTrucks(parsed.trucks);
-        if (parsed.routes) setRoutes(parsed.routes);
+        // We only load dispatches from storage to keep drivers/trucks updated from code
         if (parsed.dispatches) setDispatches(parsed.dispatches);
+        
+        // Uncomment these if you want the app to REMEMBER added drivers/trucks 
+        // over the hardcoded list above. 
+        // if (parsed.drivers) setDrivers(parsed.drivers);
+        // if (parsed.trucks) setTrucks(parsed.trucks);
       }
     }
   }, []);
 
   useEffect(() => {
-    // Save to LocalStorage on change
     if (typeof window !== 'undefined') {
       localStorage.setItem('fleetData_v1', JSON.stringify({ drivers, trucks, routes, dispatches }));
     }
   }, [drivers, trucks, routes, dispatches]);
 
   useEffect(() => {
-    // 24-Hour Auto Clear Logic
     const interval = setInterval(() => {
       const now = new Date();
       setDispatches(prev => prev.map(d => {
@@ -101,7 +155,6 @@ export default function FleetApp() {
   const activeCount = dispatches.filter(d => d.status === 'Active').length;
   const availableTrucksCount = trucks.length - activeCount;
 
-  // Filter available resources (Logic: If ID is in an Active dispatch, hide it)
   const availableDrivers = drivers.filter(d => !dispatches.find(disp => disp.status === 'Active' && disp.driverId === d.id));
   const availableTrucks = trucks.filter(t => !dispatches.find(disp => disp.status === 'Active' && disp.truckId === t.id));
 
@@ -178,7 +231,7 @@ export default function FleetApp() {
           <h1 className="text-xl font-bold flex items-center gap-2">
             <Truck className="w-6 h-6" /> FleetCmd
           </h1>
-          <div className="text-xs bg-blue-800 px-2 py-1 rounded font-mono">v1.0</div>
+          <div className="text-xs bg-blue-800 px-2 py-1 rounded font-mono">v1.1</div>
         </div>
       </header>
 
@@ -321,14 +374,16 @@ export default function FleetApp() {
               <h3 className="text-red-800 font-bold mb-2 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" /> Danger Zone
               </h3>
-              <p className="text-sm text-red-600 mb-4 opacity-80">This will delete all history and local data. Only use if the app is glitching.</p>
+              <p className="text-sm text-red-600 mb-4 opacity-80">
+                Update applied? Click below to reload the new truck/driver list.
+              </p>
               <button onClick={resetData} className="bg-white border border-red-200 text-red-600 px-4 py-3 rounded-lg w-full font-bold hover:bg-red-50 transition">
-                Factory Reset App
+                Factory Reset & Reload Data
               </button>
             </div>
             
             <div className="text-center text-xs text-gray-400 mt-10">
-              <p>FleetCmd PWA Build 1.0.2</p>
+              <p>FleetCmd PWA Build 1.1</p>
               <p>Local Storage Active</p>
             </div>
           </div>
